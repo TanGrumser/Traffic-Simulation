@@ -1,0 +1,28 @@
+/*---------------------------------------------------------------------------*\
+| Traffic Simulation Style Sheeet
+|
+| History:
+| 2017-12-24: HGR created
+\*---------------------------------------------------------------------------*/
+
+  body
+    {
+    background:  url(green.jpg);
+    font-family: Arial;
+    }
+
+  h1
+    {
+    color:       yellow;
+    }
+
+  .scroll
+    {
+    line-height: 0;
+    overflow:    auto;
+    }
+
+  .toolbar
+    {
+    margin-bottom: 10px;
+    }
