@@ -11,7 +11,8 @@
   <body onload="init()">
     <h1>Traffic Simulation</h1>
     <div class="toolbar">
-      <button onclick="pause()">Pause</button>
+      <button onclick="handlePause(event)" style="width: 80px">Pause</button>
+      <button onclick="handlePlus(event)">+</button>
     </div>
     <div class="scroll">
       <canvas id="CANVAS"/>

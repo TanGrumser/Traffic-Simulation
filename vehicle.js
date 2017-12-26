@@ -4,15 +4,14 @@
 // 2017-12-24: HGR created
 //-----------------------------------------------------------------------------
 
+const ENGINE_BREAK = .5;
+
 class Vehicle
-  {    
+  {
   constructor(lane)
     {
     //var aColors = ["red", "green", "yellow", "lightblue", "pink"];
     var isTruck = Math.random() > 0.8;
-
-    this.index = route.getVehicleCount();
-    this.lane = lane;
 
     if (isTruck)
       {
@@ -35,12 +34,10 @@ class Vehicle
       this.color  = "white";
       }
 
-      this.safetyDistance = Math.random() * 1.2 + 0.8; //0.8 - 2.0 seconds
-      this.aggresivity = Math.random(); 
-    // set random color
-
-    //this.color = aColors[Math.floor(Math.random() * aColors.length)];
     this.pos   = this.width;
+    this.lane = lane;
+    this.safetyDistance = Math.random() * 1.2 + 0.8; //0.8 - 2.0 seconds
+    this.aggresivity = Math.random(); 
     }
 
   // Get Speed
@@ -50,22 +47,38 @@ class Vehicle
       return this.speed;
     }
 
+  // Get Safety Distance
+  //---------------------------------------------------------------------------
+
+    getSaftyDistance() {
+      return this.speed;
+    }
+
   // Advance time
   //---------------------------------------------------------------------------
 
   advance(dTime) {
-    var preceeder =   route.getPreceederOf(this.index, 0);
-    var distanceToPreceeder  = this.getDistanceTo(preceeder);
+    var optimalBreakingDistance;
+    var preceeder =   route.getPreceding(this, 0);
+    var realtiveSpeed = preceeder == null ? this.speed : this.speed - preceeder.getSpeed();
+    var distanceToPreceeder  = preceeder == null ? 9999 : this.getDistanceTo(preceeder);
 
-    if (distanceToPreceeder < this.speed / this.safetyDistance) {
-      if (this.speed > preceeder.getSpeed())
-        this.speed -= 1;
-    } else {
-     if (this.speed > this.wantedSpeed)
-       this.speed -= (this.aggresivity * 0.8 + 0.2) * this.maxAcceleration;
-      else if (this.speed < this.wantedSpeed)
-       this.speed += (this.aggresivity * 0.8 + 0.2) * this.maxAcceleration;
-    }
+    if (distanceToPreceeder < 1000 && realtiveSpeed > 0) { // the driver first noticed the preceder
+      optimalBreakingDistance = .5 * realtiveSpeed * realtiveSpeed / ENGINE_BREAK + this.safetyDistance * this.speed;
+      console.log("rSpeed: " + realtiveSpeed + "\ndistance: " + distanceToPreceeder + "\noptBDist:" + optimalBreakingDistance);
+
+      if (distanceToPreceeder < this.speed * this.safetyDistance) {
+          //alert("!");
+          this.speed -= this.maxAcceleration;
+      } else if (distanceToPreceeder < optimalBreakingDistance) {
+        this.speed -= ENGINE_BREAK / 3.6;
+      }
+    } else if (this.speed > this.wantedSpeed)
+      this.speed -= (this.aggresivity * 0.8 + 0.2) * this.maxAcceleration;
+    else if (this.speed < this.wantedSpeed)
+      this.speed += (this.aggresivity * 0.8 + 0.2) * this.maxAcceleration;
+      
+
 
 
 
@@ -76,6 +89,6 @@ class Vehicle
   //Get Distance To Other Vehicle
   //---------------------------------------------------------------------------
     getDistanceTo(other) {
-      return other.pos - this.pos;
+      return other.pos - this.pos - other.length;
     }
   }

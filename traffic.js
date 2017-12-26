@@ -5,12 +5,13 @@
 // 2017-12-24: HGR created
 //-----------------------------------------------------------------------------
 
+"use strict";
+
 var def =
   {
   elapsedTime: 0,                       // elapsed time in seconds
   dTime:       0.05,                    // 20 frames per second
   scale:       1.25,
-  cLanes:      3,
   widthLane:   3.75,
   widthLine:   0.2,
   }
@@ -76,24 +77,57 @@ function init()
 
   draw();
 
-  route.addVehicle(new Vehicle(0, 30));
-  route.addVehicle(new Vehicle(1, 40));
-  route.addVehicle(new Vehicle(2, 50));
+  route.addVehicle(new Vehicle(0));
+  route.addVehicle(new Vehicle(1));
+  route.addVehicle(new Vehicle(2));
 
   iTimer = setInterval(nextFrame, def.dTime * 1000);
+  }
+
+// Plus adds vehicle
+//-----------------------------------------------------------------------------
+
+function handlePlus()
+  {
+  var next;
+  var vehicle = new Vehicle(0);
+
+  route.addVehicle(vehicle);
+  next = route.getPreceding(vehicle, 0);
+
+  if (next != null)
+    {
+    var saftyDist = vehicle.getSaftyDistance();
+    var dist      = next.pos - next.length - vehicle.pos;
+
+    if (dist < saftyDist)
+      {
+      if (vehicle.speed > next.speed)
+        vehicle.speed = next.speed;
+
+      vehicle.pos = next.pos - next.length - saftyDist;
+      }
+    }
+
+  if (iTimer == -1)
+    iTimer = setInterval(nextFrame, def.dTime * 1000);
   }
 
 // Pause/continue
 //-----------------------------------------------------------------------------
 
-function pause()
+function handlePause(evt)
   {
   if (iTimer == -1)
+    {
     iTimer = setInterval(nextFrame, def.dTime * 1000);
+    evt.target.innerHTML = "Pause";
+    }
   else
     {
     clearInterval(iTimer);
     iTimer = -1;  
+    evt.target.innerHTML = "Continue";
     }
   }
 
@@ -150,6 +184,8 @@ class Route
   addVehicle(vehicle)
     {
     this._aVehicles.push(vehicle);
+
+    return(this._aVehicles.length);
     }
 
   // Remove vehicle
@@ -158,16 +194,18 @@ class Route
   removeVehicle(iIndex)
     {
     this._aVehicles.splice(iIndex, 1);
+
+    return(this._aVehicles.length);
     }
 
-// Get preceeder on given lane
+  // Get preceeder on given lane
   //---------------------------------------------------------------------------
 
-  getPreceeder(refVehicle, offLane)
+  getPreceding(refVehicle, offLane)
     {
     var vehicle, dist;
     var result  = null;
-    var distMin = 9999;
+    var distMin = Number.MAX_SAFE_INTEGER;
     var pos     = refVehicle.pos;
     var lane    = refVehicle.lane + offLane;
 
@@ -175,13 +213,13 @@ class Route
       {
       vehicle = this._aVehicles[iVehicle];
 
-      if (vehicle === refVehicle)
+      if (vehicle === refVehicle)       // ignore ourself
         continue;
 
       if (vehicle.lane != lane)
         continue;
 
-      dist = vehicle.pos - vehicle.length - pos;
+      dist = vehicle.pos - pos;
       if (dist < 0)
         continue;
 
@@ -195,7 +233,7 @@ class Route
     return(result)
     }
   }
-  
+
 // Calculate and draw next frame
 //-----------------------------------------------------------------------------
 
@@ -246,7 +284,7 @@ function draw()
   ctx.scale(def.scale, def.scale);
 
   drawRoute(ctx);
-  for (iVehicle = 0; iVehicle < cVehicles; iVehicle ++)
+  for (let iVehicle = 0; iVehicle < cVehicles; iVehicle ++)
     drawVehicle(ctx, route.getVehicle(iVehicle));
 
   ctx.restore();
