@@ -27,9 +27,9 @@ class Vehicle
       {
       this.length = 5;                  // m
       this.width  = 1.8;                // m
-      this.speed       = (80 + Math.random() * 80) / 3.6;
-      this.maxSpeed    = Math.random() * 100 + 140; // 140 - 200
-      this.wantedSpeed = (80 + Math.random() * 160) / 3.6; 
+      this.speed       = (80 + Math.random() * 80)   / 3.6;
+      this.maxSpeed    = (140 + Math.random() * 100) / 3.6;
+      this.wantedSpeed = (80 + Math.random() * 160)  / 3.6; 
       this.maxAcceleration = Math.random() * 7.5 + 2,5;
       this.color  = "white";
       }
@@ -59,29 +59,32 @@ class Vehicle
 
   advance(dTime) {
     var optimalBreakingDistance;
+    var hadToBreak = false;
     var preceeder =   route.getPreceding(this, 0);
     var realtiveSpeed = preceeder == null ? this.speed : this.speed - preceeder.getSpeed();
     var distanceToPreceeder  = preceeder == null ? 9999 : this.getDistanceTo(preceeder);
 
-    if (distanceToPreceeder < 1000 && realtiveSpeed > 0) { // the driver first noticed the preceder
+    if (distanceToPreceeder < 1000) { // the driver first noticed the preceder
       optimalBreakingDistance = .5 * realtiveSpeed * realtiveSpeed / ENGINE_BREAK + this.safetyDistance * this.speed;
+      hadToBreak = true;
       console.log("rSpeed: " + realtiveSpeed + "\ndistance: " + distanceToPreceeder + "\noptBDist:" + optimalBreakingDistance);
 
       if (distanceToPreceeder < this.speed * this.safetyDistance) {
-          //alert("!");
+          console.log("!");
           this.speed -= this.maxAcceleration;
-      } else if (distanceToPreceeder < optimalBreakingDistance) {
-        this.speed -= ENGINE_BREAK / 3.6;
+      } else if (distanceToPreceeder < optimalBreakingDistance  && realtiveSpeed > 0) {
+        this.speed -= ENGINE_BREAK;
+      } else {
+        hadToBreak = false;
       }
-    } else if (this.speed > this.wantedSpeed)
-      this.speed -= (this.aggresivity * 0.8 + 0.2) * this.maxAcceleration;
-    else if (this.speed < this.wantedSpeed)
-      this.speed += (this.aggresivity * 0.8 + 0.2) * this.maxAcceleration;
-      
+    } 
 
-
-
-
+    if (!hadToBreak) {
+      if (this.speed > this.wantedSpeed)
+        this.speed -= (this.aggresivity * 0.8 + 0.2) * this.maxAcceleration;
+      else if (this.speed < this.wantedSpeed)
+        this.speed += (this.aggresivity * 0.8 + 0.2) * this.maxAcceleration;
+    }
 
     this.pos += dTime * this.speed;
     }
