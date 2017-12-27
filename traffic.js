@@ -9,15 +9,10 @@
 
 var def =
   {
-  elapsedTime: 0,                       // elapsed time in seconds
-  dTime:       0.05,                    // 20 frames per second
-  scale:       1.25,
-  widthLane:   3.75,
-  widthLine:   0.2,
+  scale: 1.25,
   }
 
-var route     = null;
-var iTimer    = -1;
+var route = null;                       // global route object
 
 // Init
 //-----------------------------------------------------------------------------
@@ -31,7 +26,7 @@ function init()
   route = new Route(cLanes, length);
 
   canvas.width  = def.scale * length;
-  canvas.height = def.scale * (cLanes + 1) * def.widthLane;
+  canvas.height = def.scale * (cLanes + 1) * route._widthLane;
 
   onwheel = function(evt)
     {
@@ -63,8 +58,8 @@ function init()
         def.scale = 8;
 
       canvas.width  = def.scale * route.getLength();
-      canvas.height = def.scale * (route.getLaneCount() + 1) * def.widthLane;
-      draw();
+      canvas.height = def.scale * (route.getLaneCount() + 1) * route._widthLane;
+      route.draw();
       handled = true;
       }
 
@@ -75,13 +70,13 @@ function init()
       }
     }
 
-  draw();
+  route.draw();
 
-  route.addVehicle(new Vehicle(0));
-  route.addVehicle(new Vehicle(1));
-  route.addVehicle(new Vehicle(2));
+  route.insertVehicle(new Vehicle(0));
+  route.insertVehicle(new Vehicle(1));
+  route.insertVehicle(new Vehicle(2));
 
-  iTimer = setInterval(nextFrame, def.dTime * 1000);
+  route.run();
   }
 
 // Plus adds vehicle
@@ -89,28 +84,8 @@ function init()
 
 function handlePlus()
   {
-  var next;
-  var vehicle = new Vehicle(0);
-
-  route.addVehicle(vehicle);
-  next = route.getPreceding(vehicle, 0);
-
-  if (next != null)
-    {
-    var saftyDist = vehicle.getSaftyDistance();
-    var dist      = next.pos - next.length - vehicle.pos;
-
-    if (dist < saftyDist)
-      {
-      if (vehicle.speed > next.speed)
-        vehicle.speed = next.speed;
-
-      vehicle.pos = next.pos - next.length - saftyDist;
-      }
-    }
-
-  if (iTimer == -1)
-    iTimer = setInterval(nextFrame, def.dTime * 1000);
+  route.addVehicle();
+  route.run();
   }
 
 // Pause/continue
@@ -118,16 +93,15 @@ function handlePlus()
 
 function handlePause(evt)
   {
-  if (iTimer == -1)
+  if (route.isRunning())
     {
-    iTimer = setInterval(nextFrame, def.dTime * 1000);
-    evt.target.innerHTML = "Pause";
+    evt.target.innerHTML = "\u23F5";
+    route.pause();
     }
   else
     {
-    clearInterval(iTimer);
-    iTimer = -1;  
-    evt.target.innerHTML = "Continue";
+    evt.target.innerHTML = "\u23F8";
+    route.run();
     }
   }
 
@@ -141,9 +115,45 @@ class Route
 
   constructor(cLanes, lengthRoute)
     {
-    this._aVehicles   = [];
-    this._cLanes      = cLanes;
-    this._lengthRoute = lengthRoute;
+    this._cLanes       = cLanes;
+    this._lengthRoute  = lengthRoute;
+    this._aVehicles    = [];
+    this._widthLane    = 3.75;
+    this._widthLine    = 0.2;
+    this._timerAdvance = -1;
+    this._dTime        = 0.05;          // 20 frames per second
+    this._elapsedTime  = 0;             // elapsed time in seconds
+    }
+
+  // Run the animation
+  //---------------------------------------------------------------------------
+
+  run()
+    {
+    if (this._timerAdvance == -1)
+      {
+      this._timerAdvance = setInterval(Route._nextFrame, this._dTime * 1000, this);
+      }
+    }
+
+  // Pause the animation
+  //---------------------------------------------------------------------------
+
+  pause()
+    {
+    if (this._timerAdvance != -1)
+      {
+      clearInterval(this._timerAdvance);
+      this._timerAdvance = -1;     
+      }
+    }
+
+  // Pause the animation
+  //---------------------------------------------------------------------------
+
+  isRunning()
+    {
+    return(this._timerAdvance != -1)
     }
 
   // Get vehicle count
@@ -178,10 +188,38 @@ class Route
     return(this._aVehicles[iIndex]);
     }
 
-  // Add vehicle
+  // Add new vehicle
   //---------------------------------------------------------------------------
 
-  addVehicle(vehicle)
+  addVehicle()
+    {
+    var next;
+    var lane    = 0;
+    var vehicle = new Vehicle(lane);
+
+    if (vehicle.speed > 180 / 3.6)
+      lane = 2;
+    else if (vehicle.speed > 100 / 3.6)
+      lane = 1;
+
+    vehicle.lane = lane;
+    next = route.getFirst(lane);
+    route.insertVehicle(vehicle);
+
+    if (next != null)
+      {
+      var distSafty = vehicle.getSaftyDistance();
+      var dist      = vehicle.getDistanceTo(next);
+
+      if (dist < distSafty)
+        vehicle.pos = next.pos - next.length - distSafty;
+      }
+    }
+
+  // Insert given vehicle
+  //---------------------------------------------------------------------------
+
+  insertVehicle(vehicle)
     {
     this._aVehicles.push(vehicle);
 
@@ -198,7 +236,33 @@ class Route
     return(this._aVehicles.length);
     }
 
-  // Get preceeder on given lane
+  // Get first vehicle in lane
+  //---------------------------------------------------------------------------
+
+  getFirst(lane)
+    {
+    var vehicle;
+    var result = null;
+    var pos    = Number.MAX_SAFE_INTEGER;
+
+    for (let iVehicle = 0; iVehicle < this._aVehicles.length; iVehicle ++)
+      {
+      vehicle = this._aVehicles[iVehicle];
+
+      if (vehicle.lane != lane)
+        continue;
+      
+      if (vehicle.pos < pos)
+        {
+        pos    = vehicle.pos;
+        result = vehicle;
+        }
+      }
+
+    return(result);
+    }
+    
+  // Get preceder on given lane
   //---------------------------------------------------------------------------
 
   getPreceding(refVehicle, offLane)
@@ -232,121 +296,119 @@ class Route
 
     return(result)
     }
-  }
 
-// Calculate and draw next frame
-//-----------------------------------------------------------------------------
+  // Draw route and vehicles
+  //---------------------------------------------------------------------------
 
-function nextFrame()
-  {
-  var vehicle;
-  var iVehicle    = 0;
-  var cVehicles   = route.getVehicleCount();
-  var lengthRoute = route.getLength();
-
-  def.elapsedTime += def.dTime;
-
-  while (iVehicle < cVehicles)
+  draw()
     {
-    vehicle = route.getVehicle(iVehicle);
-    vehicle.advance(def.dTime);
+    var canvas    = document.getElementById("CANVAS");
+    var ctx       = canvas.getContext("2d");
+    var cVehicles = this.getVehicleCount();
 
-    if (vehicle.pos - vehicle.length > lengthRoute)
+    ctx.save();
+    ctx.scale(def.scale, def.scale);
+
+    this._drawRoute(ctx);
+    for (let iVehicle = 0; iVehicle < cVehicles; iVehicle ++)
+      this._drawVehicle(ctx, route.getVehicle(iVehicle));
+
+    ctx.restore();
+    }
+
+  // Draw the route
+  //---------------------------------------------------------------------------
+
+  _drawRoute(ctx)
+    {
+    var y;
+    var cx = this._lengthRoute;
+    var cy = (this._cLanes + 1) * this._widthLane;
+
+    ctx.beginPath();
+    ctx.rect(0, 0, cx, cy);
+    ctx.fillStyle = "rgb(20, 20, 20)";
+    ctx.fill();
+
+    ctx.lineWidth   = this._widthLine;
+    ctx.strokeStyle = "rgb(200, 200, 200)";
+    
+    // draw the border lines
+
+    ctx.setLineDash([]);
+    ctx.beginPath();
+
+    y = this._widthLine / 2;
+    ctx.moveTo(0, y);
+    ctx.lineTo(cx, y);
+
+    y = this._cLanes * this._widthLane - this._widthLine / 2;
+    ctx.moveTo(0, y);
+    ctx.lineTo(cx, y);
+    ctx.stroke();
+
+    // draw the white lines 
+
+    ctx.setLineDash([6, 6])
+    ctx.beginPath();
+
+    for (let iLane = 1; iLane < this._cLanes; iLane ++)
       {
-      cVehicles = route.removeVehicle(iVehicle);
-
-      if (cVehicles == 0)
-        {
-        clearInterval(iTimer);
-        console.log("Done after " + def.elapsedTime + " sec.");
-        break;
-        }
-
-      continue;
+      y = this._widthLane * iLane;
+      ctx.moveTo(0, y);
+      ctx.lineTo(cx, y);  
       }
 
-    iVehicle ++;
+    ctx.stroke();
     }
 
-  draw();
-  }
+  // Draw single vehicle
+  //---------------------------------------------------------------------------
 
-// Draw route and vehicles
-//-----------------------------------------------------------------------------
-
-function draw()
-  {
-  var canvas    = document.getElementById("CANVAS");
-  var ctx       = canvas.getContext("2d");
-  var cVehicles = route.getVehicleCount();
-
-  ctx.save();
-  ctx.scale(def.scale, def.scale);
-
-  drawRoute(ctx);
-  for (let iVehicle = 0; iVehicle < cVehicles; iVehicle ++)
-    drawVehicle(ctx, route.getVehicle(iVehicle));
-
-  ctx.restore();
-  }
-
-// Draw the route
-//-----------------------------------------------------------------------------
-
-function drawRoute(ctx)
-  {
-  var y;
-  var cLanes = route.getLaneCount();
-  var cx     = route.getLength();
-  var cy     = (cLanes + 1) * def.widthLane;
-
-  ctx.beginPath();
-  ctx.rect(0, 0, cx, cy);
-  ctx.fillStyle = "rgb(20, 20, 20)";
-  ctx.fill();
-
-  ctx.lineWidth   = def.widthLine;
-  ctx.strokeStyle = "rgb(200, 200, 200)";
-  
-  // draw the border lines
-
-  ctx.setLineDash([]);
-  ctx.beginPath();
-
-  y = def.widthLine / 2;
-  ctx.moveTo(0, y);
-  ctx.lineTo(cx, y);
-
-  y = cLanes * def.widthLane - def.widthLine / 2;
-  ctx.moveTo(0, y);
-  ctx.lineTo(cx, y);
-  ctx.stroke();
-
-  // draw the white lines 
-
-  ctx.setLineDash([6, 6])
-  ctx.beginPath();
-
-  for (let iLane = 1; iLane < cLanes; iLane ++)
+  _drawVehicle(ctx, vehicle)
     {
-    y = def.widthLane * iLane;
-    ctx.moveTo(0, y);
-    ctx.lineTo(cx, y);  
+    var y = (this._cLanes- 1 - vehicle.lane) * this._widthLane + this._widthLane / 2;
+    var x = vehicle.pos - vehicle.length;
+
+    ctx.beginPath();
+    ctx.fillStyle = vehicle.color;
+    ctx.rect(x, y - vehicle.width / 2, vehicle.length, vehicle.width);
+    ctx.fill();
     }
 
-  ctx.stroke();
-  }
+  // Calculate and draw next frame
+  //---------------------------------------------------------------------------
 
-// Draw single vehicle
-//-----------------------------------------------------------------------------
+  static _nextFrame(self)
+    {
+    var vehicle;
+    var iVehicle  = 0;
+    var cVehicles = self.getVehicleCount();
 
-function drawVehicle(ctx, vehicle)
-  {
-  var y = (route.getLaneCount() - 1 - vehicle.lane) * def.widthLane + def.widthLane / 2;
-  var x = vehicle.pos - vehicle.length;
+    self._elapsedTime += self._dTime;
 
-  ctx.beginPath();
-  ctx.fillStyle = vehicle.color;
-  ctx.rect(x, y - vehicle.width / 2, vehicle.length, vehicle.width);
-  ctx.fill();
+    while (iVehicle < cVehicles)
+      {
+      vehicle = self.getVehicle(iVehicle);
+      vehicle.advance(self._dTime);
+
+      if (vehicle.pos - vehicle.length > self._lengthRoute)
+        {
+        cVehicles = self.removeVehicle(iVehicle);
+
+        if (cVehicles == 0)
+          {
+          self.pause();
+          console.log("Done after " + self._elapsedTime + " sec.");
+          break;
+          }
+
+        continue;
+        }
+
+      iVehicle ++;
+      }
+
+    self.draw();
+    }
   }

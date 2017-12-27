@@ -67,10 +67,9 @@ class Vehicle
     if (distanceToPreceeder < 1000) { // the driver first noticed the preceder
       optimalBreakingDistance = .5 * realtiveSpeed * realtiveSpeed / ENGINE_BREAK + this.safetyDistance * this.speed;
       hadToBreak = true;
-      console.log("rSpeed: " + realtiveSpeed + "\ndistance: " + distanceToPreceeder + "\noptBDist:" + optimalBreakingDistance);
+      //console.log("rSpeed: " + realtiveSpeed + "\ndistance: " + distanceToPreceeder + "\noptBDist:" + optimalBreakingDistance);
 
       if (distanceToPreceeder < this.speed * this.safetyDistance) {
-          console.log("!");
           this.speed -= this.maxAcceleration;
       } else if (distanceToPreceeder < optimalBreakingDistance  && realtiveSpeed > 0) {
         this.speed -= ENGINE_BREAK;
